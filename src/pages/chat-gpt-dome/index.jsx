@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   makeStyles,
   TextField,
@@ -62,8 +62,9 @@ const Index = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
+  const [countMes, setCountMes] = useState(0);
   const [key, setKey] = useState(
-    "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"
+    "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"
   );
   const [model, setModel] = React.useState({
     value: "",
@@ -73,40 +74,54 @@ const Index = () => {
 
   async function handleSend() {
     if (input.trim()) {
-      let messageTem = [...messages, { role: "user", content: input }];
-      const configuration = new Configuration({
-        organization: "org-cVpKYRewPA62Y2WwxybTaBbS",
-        apiKey: key,
-      });
-      const openai = new OpenAIApi(configuration);
-      const response = await openai.createChatCompletion({
-        model: model,
-        messages: messageTem,
-        max_tokens: 200,
-        temperature: 0.9,
-        stream: true,
-        // stop: ["Human:", "AI:"],
-      });
-      let str = response.data.split(/\n\n/);
-      let role = "";
-      let strNew = str.map((item) => {
-        if (item.length > 20) {
-          let delta = JSON.parse(item.substring(5).trim()).choices[0].delta;
-          if (delta.role) {
-            role = delta.role;
-          }
-          if (delta.content && delta.content != null) {
-            return delta.content;
-          }
-        }
-      });
-      let content = strNew.join("")
-      messageTem = [...messageTem, { role: role, content: content }];
+      let messageTem = [
+        ...messages,
+        { role: "user", content: input },
+        { role: "AI", content: "正在请求..." },
+      ];
       setMessages(messageTem);
+      setCountMes(countMes + 1);
       setInput("");
-      console.log(strNew, str, "消息");
     }
   }
+
+  useEffect(() => {
+    updateMessage();
+  }, [countMes]);
+
+  const updateMessage = async () => {
+    let messageTem = [...messages];
+    messageTem.pop();
+    const configuration = new Configuration({
+      organization: "org-cVpKYRewPA62Y2WwxybTaBbS",
+      apiKey: key,
+    });
+    const openai = new OpenAIApi(configuration);
+    const response = await openai.createChatCompletion({
+      model: model,
+      messages: messageTem,
+      max_tokens: 200,
+      temperature: 0.9,
+      stream: true,
+      // stop: ["Human:", "AI:"],
+    });
+    let str = response.data.split(/\n\n/);
+    let role = "";
+    let strNew = str.map((item) => {
+      if (item.length > 20) {
+        let delta = JSON.parse(item.substring(5).trim()).choices[0].delta;
+        if (delta.role) {
+          role = delta.role;
+        }
+        if (delta.content && delta.content != null) {
+          return delta.content;
+        }
+      }
+    });
+    let content = strNew.join("");
+    messageTem = [...messageTem, { role: role, content: content }];
+    setMessages(messageTem);
+  };
 
   function handleInputKeyDown(event) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -210,6 +225,7 @@ const Index = () => {
               {messages.map((message, index) => (
                 <ListItem key={index}>
                   <ListItemAvatar>
+                    {message.role}
                     <Avatar>
                       <AccountCircleIcon />
                     </Avatar>
